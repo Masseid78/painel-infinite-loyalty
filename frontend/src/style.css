@@ -1,0 +1,67 @@
+:root {
+  --bg-dark: #171311;
+  --bg-dark-soft: #1f1a17;
+  --bg-page: #f3efe7;
+  --bg-card: #ffffff;
+  --gold: #c4a05a;
+  --gold-hover: #b08d48;
+  --gold-soft: rgba(196, 160, 90, 0.16);
+  --text: #1c1917;
+  --text-muted: #7a736b;
+  --text-on-dark: #f7f2ea;
+  --text-on-dark-muted: #b7aea3;
+  --border: #e6e0d6;
+  --border-strong: #d2c9bb;
+  --danger: #b42318;
+  --radius: 14px;
+  --shadow: 0 10px 30px rgba(28, 25, 23, 0.06);
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-serif: 'Libre Baskerville', Georgia, serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
