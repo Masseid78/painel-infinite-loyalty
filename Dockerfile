@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libicu-dev \
     && docker-php-ext-install -j$(nproc) \
         pdo \
         pdo_pgsql \
@@ -16,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         mbstring \
         xml \
         bcmath \
+        intl \
         opcache \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,6 +25,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+COPY backend/composer.json backend/composer.lock* ./
 COPY backend/ ./
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
@@ -30,13 +33,11 @@ ENV COMPOSER_MEMORY_LIMIT=-1
 ENV APP_ENV=production
 ENV APP_DEBUG=false
 
-# Sem composer.lock no repo: resolve deps no build. --no-scripts evita falha sem APP_KEY.
-RUN composer update \
-      --no-dev \
-      --optimize-autoloader \
-      --no-interaction \
-      --prefer-dist \
-      --no-scripts \
+RUN if [ -f composer.lock ]; then \
+      composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts --ignore-platform-reqs; \
+    else \
+      composer update --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts --ignore-platform-reqs; \
+    fi \
     && mkdir -p \
       storage/framework/cache \
       storage/framework/sessions \
