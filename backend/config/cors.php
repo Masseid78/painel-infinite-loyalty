@@ -2,7 +2,10 @@
 
 $origins = array_values(array_filter(array_map(
     'trim',
-    explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173'))
+    explode(',', env(
+        'CORS_ALLOWED_ORIGINS',
+        'http://localhost:5173,https://painel-infinite-loyalty.vercel.app'
+    ))
 )));
 
 return [
