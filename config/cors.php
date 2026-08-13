@@ -1,15 +1,25 @@
 <?php
 
-$origins = array_values(array_filter(array_map(
+$defaults = [
+    'http://localhost:5173',
+    'https://painel-infinite-loyalty.vercel.app',
+];
+
+$fromEnv = array_filter(array_map(
     'trim',
-    explode(',', env(
-        'CORS_ALLOWED_ORIGINS',
-        'http://localhost:5173,https://painel-infinite-loyalty.vercel.app'
-    ))
-)));
+    explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
+));
+
+$frontend = trim((string) env('FRONTEND_URL', ''));
+
+$origins = array_values(array_unique(array_filter(array_merge(
+    $defaults,
+    $fromEnv,
+    $frontend !== '' ? [$frontend] : []
+))));
 
 return [
-    'paths' => ['api/*', 'up'],
+    'paths' => ['api/*', 'up', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
     'allowed_origins' => $origins,
     'allowed_origins_patterns' => [],
