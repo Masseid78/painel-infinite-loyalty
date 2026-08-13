@@ -3,10 +3,19 @@ set -e
 
 echo "Starting Infinite Loyalty API..."
 
+mkdir -p \
+  storage/framework/cache \
+  storage/framework/sessions \
+  storage/framework/views \
+  storage/logs \
+  bootstrap/cache
+
+chmod -R 775 storage bootstrap/cache || true
+
 # Limpa cache gerado no BUILD (sem as envs da Railway)
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
+php artisan config:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
 php artisan cache:clear || true
 
 if [ -z "$APP_KEY" ]; then
@@ -16,11 +25,6 @@ fi
 
 echo "Running migrations..."
 php artisan migrate --force
-
-echo "Caching config with runtime env..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
 
 echo "Listening on 0.0.0.0:${PORT:-8080}"
 php artisan serve --host=0.0.0.0 --port="${PORT:-8080}"
