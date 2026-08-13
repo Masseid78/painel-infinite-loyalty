@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+const TOKEN_KEY = 'il_auth_token'
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
   headers: {
@@ -7,6 +9,53 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+api.interceptors.request.use((config) => {
+  const token = getToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearToken()
+      window.dispatchEvent(new Event('il:unauthorized'))
+    }
+    return Promise.reject(error)
+  },
+)
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
+
+export function setToken(token) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+export function isLoggedIn() {
+  return Boolean(getToken())
+}
+
+export function login(email, password) {
+  return api.post('/login', { email, password })
+}
+
+export function logout() {
+  return api.post('/logout').finally(() => clearToken())
+}
+
+export function getMe() {
+  return api.get('/me')
+}
 
 export function getDashboard() {
   return api.get('/dashboard')

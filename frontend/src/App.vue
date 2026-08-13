@@ -1,19 +1,24 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
+  clearToken,
   createCompany,
   deleteCompany,
   downloadBackup,
   getCompanies,
   getDashboard,
+  isLoggedIn,
+  logout as apiLogout,
   restoreBackup,
   updateCompany,
   updateSettings,
 } from './api'
 import CompanyModal from './components/CompanyModal.vue'
+import LoginView from './components/LoginView.vue'
 import MetaModal from './components/MetaModal.vue'
 import { formatDateBr, formatMoney } from './utils/format'
 
+const authenticated = ref(isLoggedIn())
 const loading = ref(true)
 const error = ref('')
 const savingMeta = ref(false)
@@ -76,6 +81,25 @@ const tipText = computed(() => {
 
 let searchTimer
 
+function onUnauthorized() {
+  authenticated.value = false
+  loading.value = false
+}
+
+function onLoginSuccess() {
+  authenticated.value = true
+  refreshAll()
+}
+
+async function handleLogout() {
+  try {
+    await apiLogout()
+  } catch {
+    clearToken()
+  }
+  authenticated.value = false
+}
+
 async function loadDashboard() {
   const { data } = await getDashboard()
   dashboard.value = data
@@ -105,13 +129,26 @@ async function refreshAll() {
   }
 }
 
-onMounted(refreshAll)
+onMounted(() => {
+  window.addEventListener('il:unauthorized', onUnauthorized)
+  if (authenticated.value) {
+    refreshAll()
+  } else {
+    loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('il:unauthorized', onUnauthorized)
+})
 
 watch(statusFilter, () => {
+  if (!authenticated.value) return
   loadCompanies().catch(() => {})
 })
 
 watch(search, () => {
+  if (!authenticated.value) return
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     loadCompanies().catch(() => {})
@@ -212,7 +249,9 @@ async function handleRestore(event) {
 </script>
 
 <template>
-  <div class="page">
+  <LoginView v-if="!authenticated" @success="onLoginSuccess" />
+
+  <div v-else class="page">
     <header class="hero">
       <div class="container hero-top">
         <div class="brand">
@@ -233,7 +272,10 @@ async function handleRestore(event) {
           </div>
         </div>
 
-        <button class="btn gold" type="button" @click="openNewCompany">+ Nova empresa</button>
+        <div class="hero-actions">
+          <button class="btn ghost-dark" type="button" @click="handleLogout">Sair</button>
+          <button class="btn gold" type="button" @click="openNewCompany">+ Nova empresa</button>
+        </div>
       </div>
 
       <div class="container meta-block">
@@ -416,11 +458,18 @@ async function handleRestore(event) {
 .meta-block,
 .panel-head,
 .filters,
-.meta-label-row {
+.meta-label-row,
+.hero-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.btn.ghost-dark {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #f7f2ea;
 }
 
 .brand {
