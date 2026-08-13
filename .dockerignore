@@ -1,0 +1,12 @@
+**/.git
+**/node_modules
+**/vendor
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/storage/logs/*
+**/bootstrap/cache/*.php
+frontend/dist
+frontend/node_modules
+*.md

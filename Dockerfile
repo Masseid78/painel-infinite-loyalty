@@ -1,21 +1,49 @@
 FROM php:8.3-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql \
+    git \
+    unzip \
+    curl \
+    libpq-dev \
+    libzip-dev \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    && docker-php-ext-install -j$(nproc) \
+        pdo \
+        pdo_pgsql \
+        zip \
+        mbstring \
+        xml \
+        bcmath \
+        opcache \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-WORKDIR /app
+WORKDIR /var/www/html
+
 COPY backend/ ./
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
-    && mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
-
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_MEMORY_LIMIT=-1
 ENV APP_ENV=production
 ENV APP_DEBUG=false
+
+# Sem composer.lock no repo: resolve deps no build. --no-scripts evita falha sem APP_KEY.
+RUN composer update \
+      --no-dev \
+      --optimize-autoloader \
+      --no-interaction \
+      --prefer-dist \
+      --no-scripts \
+    && mkdir -p \
+      storage/framework/cache \
+      storage/framework/sessions \
+      storage/framework/views \
+      storage/logs \
+      bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 8000
 
