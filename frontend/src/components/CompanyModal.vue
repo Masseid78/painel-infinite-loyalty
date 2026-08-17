@@ -8,6 +8,7 @@ const props = defineProps({
   statuses: { type: Object, default: () => ({}) },
   planos: { type: Object, default: () => ({}) },
   saving: Boolean,
+  formError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -67,7 +68,7 @@ function submit() {
 
         <label>
           <span>WhatsApp / Instagram</span>
-          <input v-model="form.contato" type="text" />
+          <input v-model="form.contato" type="text" placeholder="Ex.: 11999999999" />
         </label>
 
         <label>
@@ -107,6 +108,8 @@ function submit() {
           <span>Observação</span>
           <textarea v-model="form.observacao" rows="4" />
         </label>
+
+        <p v-if="formError" class="form-error">{{ formError }}</p>
 
         <div class="actions">
           <button type="button" class="btn ghost" @click="$emit('close')">Cancelar</button>
@@ -215,6 +218,17 @@ textarea {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+}
+
+.form-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #7a1d16;
+  background: #fff5f4;
+  border: 1px solid #f0c7c3;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
 }
 
 .btn {

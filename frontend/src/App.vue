@@ -16,7 +16,7 @@ import {
 import CompanyModal from './components/CompanyModal.vue'
 import LoginView from './components/LoginView.vue'
 import MetaModal from './components/MetaModal.vue'
-import { formatDateBr, formatMoney } from './utils/format'
+import { formatDateBr, formatMoney, dateGroupLabel } from './utils/format'
 
 const authenticated = ref(isLoggedIn())
 const loading = ref(true)
@@ -42,9 +42,17 @@ const planos = ref({
 
 const search = ref('')
 const statusFilter = ref('todos')
+const dateFilter = ref('hoje')
+const periodCounts = ref({
+  hoje: 0,
+  semana: 0,
+  anteriores: 0,
+  todos: 0,
+})
 const metaOpen = ref(false)
 const companyOpen = ref(false)
 const editingCompany = ref(null)
+const companyFormError = ref('')
 const restoreInput = ref(null)
 
 const meta = computed(() => dashboard.value?.meta || {
@@ -79,6 +87,27 @@ const tipText = computed(() => {
   return 'Continue cadastrando contatos e fechando assinaturas'
 })
 
+const groupedCompanies = computed(() => {
+  const groups = []
+  const map = new Map()
+
+  for (const company of companies.value) {
+    const key = company.data_contato || 'sem-data'
+    if (!map.has(key)) {
+      const group = {
+        key,
+        label: dateGroupLabel(company.data_contato),
+        items: [],
+      }
+      map.set(key, group)
+      groups.push(group)
+    }
+    map.get(key).items.push(company)
+  }
+
+  return groups
+})
+
 let searchTimer
 
 function onUnauthorized() {
@@ -109,8 +138,10 @@ async function loadCompanies() {
   const { data } = await getCompanies({
     q: search.value || undefined,
     status: statusFilter.value,
+    periodo: dateFilter.value,
   })
   companies.value = data.data || []
+  if (data.counts) periodCounts.value = data.counts
   if (data.statuses) statuses.value = data.statuses
   if (data.planos) planos.value = data.planos
 }
@@ -147,6 +178,11 @@ watch(statusFilter, () => {
   loadCompanies().catch(() => {})
 })
 
+watch(dateFilter, () => {
+  if (!authenticated.value) return
+  loadCompanies().catch(() => {})
+})
+
 watch(search, () => {
   if (!authenticated.value) return
   clearTimeout(searchTimer)
@@ -157,11 +193,13 @@ watch(search, () => {
 
 function openNewCompany() {
   editingCompany.value = null
+  companyFormError.value = ''
   companyOpen.value = true
 }
 
 function openEditCompany(company) {
   editingCompany.value = company
+  companyFormError.value = ''
   companyOpen.value = true
 }
 
@@ -182,6 +220,7 @@ async function saveMeta(payload) {
 async function saveCompany(payload) {
   savingCompany.value = true
   error.value = ''
+  companyFormError.value = ''
   try {
     if (editingCompany.value?.id) {
       await updateCompany(editingCompany.value.id, payload)
@@ -193,10 +232,12 @@ async function saveCompany(payload) {
     await Promise.all([loadDashboard(), loadCompanies()])
   } catch (e) {
     const errors = e?.response?.data?.errors
-    error.value =
+    const msg =
       (errors && Object.values(errors).flat()[0]) ||
       e?.response?.data?.message ||
       'Erro ao salvar empresa.'
+    companyFormError.value = msg
+    error.value = msg
   } finally {
     savingCompany.value = false
   }
@@ -352,6 +393,41 @@ async function handleRestore(event) {
           </div>
         </div>
 
+        <div class="date-tabs">
+          <button
+            type="button"
+            class="date-tab"
+            :class="{ active: dateFilter === 'hoje' }"
+            @click="dateFilter = 'hoje'"
+          >
+            Hoje <small>{{ periodCounts.hoje }}</small>
+          </button>
+          <button
+            type="button"
+            class="date-tab"
+            :class="{ active: dateFilter === 'semana' }"
+            @click="dateFilter = 'semana'"
+          >
+            Esta semana <small>{{ periodCounts.semana }}</small>
+          </button>
+          <button
+            type="button"
+            class="date-tab"
+            :class="{ active: dateFilter === 'anteriores' }"
+            @click="dateFilter = 'anteriores'"
+          >
+            Dias anteriores <small>{{ periodCounts.anteriores }}</small>
+          </button>
+          <button
+            type="button"
+            class="date-tab"
+            :class="{ active: dateFilter === 'todos' }"
+            @click="dateFilter = 'todos'"
+          >
+            Todos <small>{{ periodCounts.todos }}</small>
+          </button>
+        </div>
+
         <div class="filters">
           <label class="search">
             <span class="sr-only">Buscar</span>
@@ -367,7 +443,7 @@ async function handleRestore(event) {
           </label>
 
           <select v-model="statusFilter">
-            <option value="todos">Todos</option>
+            <option value="todos">Todos os status</option>
             <option v-for="(label, value) in statuses" :key="value" :value="value">
               {{ label }}
             </option>
@@ -381,33 +457,52 @@ async function handleRestore(event) {
                 <th>EMPRESA</th>
                 <th>CONTATO</th>
                 <th>STATUS</th>
+                <th>DATA CADASTRO</th>
                 <th>PRÓXIMO RETORNO</th>
                 <th>PLANO</th>
                 <th></th>
               </tr>
             </thead>
             <tbody v-if="companies.length">
-              <tr v-for="company in companies" :key="company.id">
-                <td>
-                  <strong>{{ company.nome }}</strong>
-                  <small v-if="company.nicho">{{ company.nicho }}</small>
-                </td>
-                <td>{{ company.contato || '—' }}</td>
-                <td><span class="pill">{{ company.status_label }}</span></td>
-                <td>{{ formatDateBr(company.proximo_retorno) }}</td>
-                <td>{{ company.plano_label }}</td>
-                <td class="row-actions">
-                  <button type="button" @click="openEditCompany(company)">Editar</button>
-                  <button type="button" class="danger" @click="removeCompany(company)">Excluir</button>
-                </td>
-              </tr>
+              <template v-for="group in groupedCompanies" :key="group.key">
+                <tr class="date-group-row">
+                  <td colspan="7">
+                    <div class="date-group">
+                      <strong>{{ group.label }}</strong>
+                      <span>{{ group.items.length }} contato(s)</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-for="company in group.items" :key="company.id">
+                  <td>
+                    <strong>{{ company.nome }}</strong>
+                    <small v-if="company.nicho">{{ company.nicho }}</small>
+                  </td>
+                  <td>{{ company.contato || '—' }}</td>
+                  <td><span class="pill">{{ company.status_label }}</span></td>
+                  <td>{{ formatDateBr(company.data_contato) }}</td>
+                  <td>{{ formatDateBr(company.proximo_retorno) }}</td>
+                  <td>{{ company.plano_label }}</td>
+                  <td class="row-actions">
+                    <button type="button" @click="openEditCompany(company)">Editar</button>
+                    <button type="button" class="danger" @click="removeCompany(company)">Excluir</button>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
 
           <div v-if="!companies.length && !loading" class="empty">
             <div class="empty-icon" aria-hidden="true">∞</div>
-            <p>Nenhuma empresa por aqui</p>
-            <span>Cadastre seu primeiro contato e acompanhe a evolução.</span>
+            <p v-if="dateFilter === 'hoje'">Nenhum contato cadastrado hoje</p>
+            <p v-else>Nenhuma empresa por aqui</p>
+            <span>
+              {{
+                dateFilter === 'hoje'
+                  ? 'Cadastre os contatos de hoje nesta aba. Os de outros dias ficam em Dias anteriores.'
+                  : 'Cadastre seu primeiro contato e acompanhe a evolução.'
+              }}
+            </span>
             <button class="btn gold" type="button" @click="openNewCompany">+ Nova empresa</button>
           </div>
         </div>
@@ -428,6 +523,7 @@ async function handleRestore(event) {
       :statuses="statuses"
       :planos="planos"
       :saving="savingCompany"
+      :form-error="companyFormError"
       @close="companyOpen = false"
       @save="saveCompany"
     />
@@ -645,6 +741,70 @@ async function handleRestore(event) {
 
 .filters {
   margin: 20px 0 10px;
+}
+
+.date-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.date-tab {
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-tab small {
+  background: #f3efe7;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.date-tab.active {
+  background: rgba(196, 160, 90, 0.14);
+  border-color: rgba(196, 160, 90, 0.45);
+  color: #8a6b2f;
+}
+
+.date-tab.active small {
+  background: rgba(196, 160, 90, 0.22);
+  color: #8a6b2f;
+}
+
+.date-group-row td {
+  border-bottom: 0;
+  padding-top: 18px;
+  padding-bottom: 6px;
+  background: transparent;
+}
+
+.date-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f7f3ec;
+}
+
+.date-group strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.date-group span {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .search {
