@@ -450,7 +450,7 @@ async function handleRestore(event) {
           </select>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap desktop-only">
           <table>
             <thead>
               <tr>
@@ -491,20 +491,71 @@ async function handleRestore(event) {
               </template>
             </tbody>
           </table>
+        </div>
 
-          <div v-if="!companies.length && !loading" class="empty">
-            <div class="empty-icon" aria-hidden="true">∞</div>
-            <p v-if="dateFilter === 'hoje'">Nenhum contato cadastrado hoje</p>
-            <p v-else>Nenhuma empresa por aqui</p>
-            <span>
-              {{
-                dateFilter === 'hoje'
-                  ? 'Cadastre os contatos de hoje nesta aba. Os de outros dias ficam em Dias anteriores.'
-                  : 'Cadastre seu primeiro contato e acompanhe a evolução.'
-              }}
-            </span>
-            <button class="btn gold" type="button" @click="openNewCompany">+ Nova empresa</button>
-          </div>
+        <div class="mobile-list mobile-only" v-if="companies.length">
+          <section
+            v-for="group in groupedCompanies"
+            :key="`m-${group.key}`"
+            class="mobile-group"
+          >
+            <div class="date-group">
+              <strong>{{ group.label }}</strong>
+              <span>{{ group.items.length }} contato(s)</span>
+            </div>
+
+            <article
+              v-for="company in group.items"
+              :key="`m-item-${company.id}`"
+              class="company-card"
+            >
+              <header class="company-card-head">
+                <div>
+                  <h3>{{ company.nome }}</h3>
+                  <p v-if="company.nicho">{{ company.nicho }}</p>
+                </div>
+                <span class="pill">{{ company.status_label }}</span>
+              </header>
+
+              <dl class="company-card-fields">
+                <div>
+                  <dt>Contato</dt>
+                  <dd>{{ company.contato || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Data cadastro</dt>
+                  <dd>{{ formatDateBr(company.data_contato) }}</dd>
+                </div>
+                <div>
+                  <dt>Próximo retorno</dt>
+                  <dd>{{ formatDateBr(company.proximo_retorno) }}</dd>
+                </div>
+                <div>
+                  <dt>Plano</dt>
+                  <dd>{{ company.plano_label }}</dd>
+                </div>
+              </dl>
+
+              <div class="row-actions">
+                <button type="button" @click="openEditCompany(company)">Editar</button>
+                <button type="button" class="danger" @click="removeCompany(company)">Excluir</button>
+              </div>
+            </article>
+          </section>
+        </div>
+
+        <div v-if="!companies.length && !loading" class="empty">
+          <div class="empty-icon" aria-hidden="true">∞</div>
+          <p v-if="dateFilter === 'hoje'">Nenhum contato cadastrado hoje</p>
+          <p v-else>Nenhuma empresa por aqui</p>
+          <span>
+            {{
+              dateFilter === 'hoje'
+                ? 'Cadastre os contatos de hoje nesta aba. Os de outros dias ficam em Dias anteriores.'
+                : 'Cadastre seu primeiro contato e acompanhe a evolução.'
+            }}
+          </span>
+          <button class="btn gold" type="button" @click="openNewCompany">+ Nova empresa</button>
         </div>
       </section>
     </main>
@@ -980,6 +1031,85 @@ td small {
   border-color: #f0c7c3;
 }
 
+.mobile-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
+.mobile-list {
+  display: none;
+  gap: 18px;
+  margin-top: 8px;
+}
+
+.mobile-group {
+  display: grid;
+  gap: 10px;
+}
+
+.company-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.company-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.company-card-head h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.company-card-head p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.company-card-fields {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.company-card-fields > div {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.company-card-fields dt {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a9186;
+  font-weight: 700;
+}
+
+.company-card-fields dd {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.company-card .row-actions {
+  padding-top: 4px;
+}
+
 @media (max-width: 960px) {
   .cards {
     grid-template-columns: 1fr 1fr;
@@ -995,6 +1125,30 @@ td small {
   .meta-right {
     width: 100%;
     text-align: left;
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only,
+  .mobile-list {
+    display: grid;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .hero-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .hero-actions .btn {
+    flex: 1 1 auto;
   }
 }
 
@@ -1015,6 +1169,11 @@ td small {
   .panel-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .date-tab {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: space-between;
   }
 }
 </style>
